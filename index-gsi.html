@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地図にピンを刺してみよう（地理院地図版）</title>
+
+<!-- Leaflet（リーフレット）= 地図を表示してくれる無料の部品。
+     下の1行と、ページのいちばん下の1行で読み込んでいます。インストールは不要です。 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+  body {
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: #f7f7f8;
+    color: #222;
+    line-height: 1.7;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { margin: 0 0 16px; font-size: 14px; color: #555; }
+
+  /* ★ここが超重要★
+     地図を表示する箱には「高さ」を必ず指定します。
+     これを書き忘れると、地図が真っ白で何も出てきません。 */
+  #map {
+    height: 60vh;      /* 画面の高さの60%ぶんの高さにする */
+    min-height: 300px;
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+  }
+
+  .panel {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 16px;
+  }
+  .panel h2 { font-size: 16px; margin: 0 0 8px; }
+
+  /* 画面が狭いスマホでは、入力欄が縦に並ぶようにしています */
+  .fields { display: flex; flex-wrap: wrap; gap: 8px; }
+  .field { display: flex; flex-direction: column; flex: 1 1 140px; }
+  label { font-size: 13px; color: #555; }
+  input {
+    padding: 8px;
+    font-size: 16px;   /* スマホで勝手に拡大されないように16px以上 */
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .buttons { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    padding: 10px 16px;
+    font-size: 15px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-add { background: #2563eb; color: #fff; }
+  .btn-clear { background: #e5e7eb; color: #333; }
+
+  #message { margin-top: 10px; font-size: 14px; min-height: 1.7em; }
+  #message.is-error { color: #c62828; }
+  #message.is-success { color: #2e7d32; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>地図にピンを刺してみよう</h1>
+  <p style="margin:0 0 8px;font-size:13px;color:#666">地図：地理院地図（国土地理院）</p>
+  <p class="intro">
+    緯度（いど）と経度（けいど）は、地球上の「たての位置」と「よこの位置」を表す数字です。
+    この2つを決めると、世界のどこか1点が決まります。
+  </p>
+
+  <!-- 地図はこの箱の中に表示されます -->
+  <div id="map"></div>
+
+  <div class="panel">
+    <h2>自分でピンを刺す</h2>
+    <div class="fields">
+      <div class="field">
+        <label for="lat-input">緯度（-90 〜 90）</label>
+        <input id="lat-input" type="number" step="any" placeholder="35.658581">
+      </div>
+      <div class="field">
+        <label for="lng-input">経度（-180 〜 180）</label>
+        <input id="lng-input" type="number" step="any" placeholder="139.745433">
+      </div>
+      <div class="field">
+        <label for="name-input">名前（なくてもOK）</label>
+        <input id="name-input" type="text" placeholder="東京タワー">
+      </div>
+    </div>
+    <div class="buttons">
+      <button class="btn-add" id="add-button">ピンを刺す</button>
+      <button class="btn-clear" id="clear-button">自分で刺したピンをぜんぶ消す</button>
+    </div>
+    <div id="message"></div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================================================
+// (1) 最初から地図に出しておくピン
+//     ここの行を書きかえたり、増やしたり減らしたりしてみよう！
+//     形は  { name: "好きな名前", lat: 緯度, lng: 経度 },  です。
+//       name … 名前   lat … 緯度(latitude)   lng … 経度(longitude)
+// ============================================================
+const pins = [
+  { name: "東京駅",           lat: 35.681236, lng: 139.767125 },
+  { name: "東京スカイツリー", lat: 35.710063, lng: 139.810700 },
+  { name: "皇居",             lat: 35.685175, lng: 139.752799 }
+];
+
+// ============================================================
+// (2) 地図をつくる
+//     setView([緯度, 経度], ズーム) で「最初にどこを、どれくらいの
+//     大きさで表示するか」を決めます。ズームは数字が大きいほど拡大。
+// ============================================================
+const map = L.map('map').setView([35.681236, 139.767125], 13);
+
+// 地図の絵（タイル）を「地理院地図」から借りてきて貼りつけます。
+// 地理院地図 = 国土地理院（国の機関）が公開している、日本の公式の地図。
+// attribution（だれが作った地図かの表示）は必ず入れるルールです。
+//
+// ここの pale（淡色地図）を std に変えると、色のついた標準地図になります。
+//   pale … 色がうすい。ピンや線が見やすい
+//   std  … ふつうの地図の色
+L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
+}).addTo(map);
+
+// ============================================================
+// (3) (1)のリストを1つずつ取り出して、ピンを立てる
+//     L.marker([緯度, 経度]) がピン本体。
+//     .addTo(map) で地図にのせ、.bindPopup() でクリック時の吹き出しをつけます。
+// ============================================================
+pins.forEach(function (pin) {
+  L.marker([pin.lat, pin.lng])
+    .addTo(map)
+    .bindPopup(pin.name);
+});
+
+// ============================================================
+// (4) 自分で刺したピンをまとめておく入れもの
+//     まとめておくと、あとで「ぜんぶ消す」がかんたんにできます。
+// ============================================================
+const myPins = L.layerGroup().addTo(map);
+
+// 画面の部品を取ってくる
+const latInput  = document.getElementById('lat-input');
+const lngInput  = document.getElementById('lng-input');
+const nameInput = document.getElementById('name-input');
+const messageBox = document.getElementById('message');
+
+// メッセージを画面に出すための関数
+// type は "is-error"（赤）か "is-success"（緑）
+function showMessage(text, type) {
+  messageBox.textContent = text;
+  messageBox.className = type;
+}
+
+// ============================================================
+// (5) 「ピンを刺す」ボタンが押されたときの動き
+// ============================================================
+document.getElementById('add-button').addEventListener('click', function () {
+  // 入力された文字を数字に変換する（Number）。数字にできないと NaN になる。
+  const lat = Number(latInput.value);
+  const lng = Number(lngInput.value);
+
+  // --- 入力のチェック（まちがいを教えてあげる） ---
+  if (latInput.value.trim() === '' || lngInput.value.trim() === '') {
+    showMessage('緯度と経度の両方を入力してください。', 'is-error');
+    return; // ここで処理をやめる
+  }
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    showMessage('緯度と経度は数字で入力してください。', 'is-error');
+    return;
+  }
+  if (lat < -90 || lat > 90) {
+    showMessage('緯度は -90 から 90 までの数字にしてください。', 'is-error');
+    return;
+  }
+  if (lng < -180 || lng > 180) {
+    showMessage('経度は -180 から 180 までの数字にしてください。', 'is-error');
+    return;
+  }
+
+  // --- チェックを通ったので、ピンを立てる ---
+  // 名前が空っぽのときは、緯度経度をそのまま名前にする
+  const name = nameInput.value.trim() || ('緯度 ' + lat + ' / 経度 ' + lng);
+
+  const newPin = L.marker([lat, lng])
+    .addTo(myPins)
+    .bindPopup(name);
+
+  // その場所へ地図を動かして、吹き出しを開く
+  map.setView([lat, lng], 15);
+  newPin.openPopup();
+
+  showMessage('「' + name + '」にピンを刺しました！', 'is-success');
+});
+
+// ============================================================
+// (6) 「ぜんぶ消す」ボタン
+//     消えるのは自分で刺したピンだけ。(1)のピンは残ります。
+// ============================================================
+document.getElementById('clear-button').addEventListener('click', function () {
+  map.closePopup();      // 開いたままの吹き出しを閉じる
+  myPins.clearLayers();  // 入れものの中身をまとめて消す
+  showMessage('自分で刺したピンを消しました。', 'is-success');
+});
+</script>
+</body>
+</html>
