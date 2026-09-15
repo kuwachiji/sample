@@ -5,6 +5,14 @@
 
 教材（課題・参考サイト）は [TEXTBOOK.md](TEXTBOOK.md) にあります。
 
+サンプルは2つ入っています。中身は地図の取得先（`L.tileLayer` に書く URL）が違うだけで、
+あとは同じです。
+
+| ファイル | 地図 |
+| --- | --- |
+| `index.html` | [OpenStreetMap](https://www.openstreetmap.org/) — 世界中のボランティアが作っている地図 |
+| `index-gsi.html` | [地理院地図](https://maps.gsi.go.jp/) — 国土地理院（国の機関）が公開している日本の地図 |
+
 ## ファイルを手に入れる
 
 ### git を使わない場合（おすすめ・アカウント不要）
@@ -32,11 +40,11 @@ cd sample
 
 **インターネットにつながっている必要があります**（地図の絵と Leaflet をネットから読み込むため）。
 
-> **`index.html` をダブルクリックしても、地図の絵は出ません。**
+> **ファイルをダブルクリックしても、地図の絵は出ません。**
 > 下の手順で簡易サーバーを立ててから開いてください。
-> パソコンの中のファイルを直接開くと、地図を配信している OpenStreetMap 側が
-> 「どこからの要求か分からない」として画像を返してくれないためです
-> （タイルが「Access blocked」という絵に変わります）。
+> パソコンの中のファイルを直接開くと、地図を配信している側に
+> 「どこからの要求か分からない」と判断され、画像を返してもらえないためです
+> （`index.html` ではタイルが「Access blocked」という絵に変わります）。
 
 ### 簡易サーバーを立てて開く
 
@@ -104,6 +112,33 @@ const pins = [
 この行をまねして増やしたり、数字を変えたりすると、最初から出るピンが変わります。
 書きかえたら保存して、ブラウザを再読み込み（リロード）してください。
 
+## 地図の絵を変えてみる
+
+地図の絵は「タイル」と呼ばれる小さな画像を並べて作られています。
+どこからタイルを取ってくるかは `L.tileLayer` の URL で決まるので、
+ここを書きかえるだけで地図の見た目が変わります。
+
+```js
+L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
+}).addTo(map);
+```
+
+URL の中の `{z}` `{x}` `{y}` は、Leaflet が「何枚目のタイルか」を自動で入れる場所です。
+自分で書きかえる必要はありません。
+
+地理院地図で選べるおもなものは次の3つです。URL の `pale` の部分を入れかえてください。
+
+| 書きかえる部分 | 地図 |
+| --- | --- |
+| `pale` | 淡色地図。色がうすく、ピンや線が見やすい |
+| `std` | 標準地図。ふつうの地図の色 |
+| `seamlessphoto` | 空中写真。建物や畑がそのまま見える |
+
+**`attribution` は必ず書きかえてください。** 「この地図は誰が作ったものか」を表示する場所で、
+地図を使わせてもらうときの約束になっています。消したり、別の地図の名前のまま使ったりしてはいけません。
+
 ## つまずいたときは
 
 - **地図が真っ白**: CSS の `#map { height: 60vh; }` を消していませんか？
@@ -118,4 +153,5 @@ const pins = [
 ## 使っているもの
 
 - [Leaflet 1.9.4](https://leafletjs.com/) — 地図を表示するライブラリ
-- [OpenStreetMap](https://www.openstreetmap.org/copyright) — 地図データ
+- [OpenStreetMap](https://www.openstreetmap.org/copyright) — 地図データ（`index.html`）
+- [地理院地図](https://maps.gsi.go.jp/development/ichiran.html) — 地図データ（`index-gsi.html`）
